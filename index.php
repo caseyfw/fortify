@@ -1,14 +1,29 @@
 <?php
 
-$clientId = getenv('clientId') ?? $_GET['clientId'] ?? null;
-$clientSecret = getenv('clientSecret') ?? $_GET['clientSecret'] ?? null;
+$clientId = getenv('clientId') ?: $_GET['clientId'] ?? null;
+$clientSecret = getenv('clientSecret') ?: $_GET['clientSecret'] ?? null;
 if ($clientId === null || $clientSecret === null) {
     error('auth failure', "Need clientId and clientSecret env vars or parameters.\n");
 }
+debug("Client ID: $clientId");
+debug("Client secret: $clientSecret");
 
 $releaseName = getenv('release') ?: $argv[1] ?? $_GET['r'] ?? $_GET['release'] ?? null;
 if ($releaseName === null) {
     error('which release?', "Need release env var, argument or parameter.\n");
+}
+debug("Release name: $releaseName");
+
+$cacheDir = getenv('cacheDir');
+if (!empty($cacheDir) && is_dir($cacheDir)) {
+    debug("Cache dir: $cacheDir");
+    $cacheFile = realpath($cacheDir) . '/' . preg_replace("([^\w\s\d\-_~,;\[\]\(\).])", '', $releaseName);
+    debug("Cache file: $cacheFile");
+    if (file_exists($cacheFile)) {
+        debug("Cache hit!");
+        redirectToBadge(file_get_contents($cacheFile));
+    }
+    debug("Cache miss.");
 }
 
 $fortifyApi = 'https://api.emea.fortify.com';
@@ -28,6 +43,7 @@ $authToken = $decodedResponse['access_token'] ?? null;
 if ($authToken === null) {
     error('auth failure', "Failed authenticating. Are you auth credentials incorrect?\n");
 }
+debug("Authenticated. Auth token: $authToken");
 
 // Get release id.
 $url = $fortifyApi . "/api/v3/releases?filters=applicationName%3AROAR%2BreleaseName%3A$releaseName";
@@ -38,6 +54,7 @@ $releaseId = $decodedResponse['items'][0]['releaseId'] ?? null;
 if ($releaseId === null) {
     error('release not found', "Failed fetching release id. $response", 'lightgrey');
 }
+debug("Release ID: $releaseId");
 
 // Get release details.
 $url = $fortifyApi . "/api/v3/releases/$releaseId";
@@ -54,18 +71,30 @@ foreach(['critical', 'high', 'medium', 'low'] as $severity) {
 
 if (count($issues) === 0) {
     $badgeString = 'fortify-passed-green';
+    debug("No issues.");
 } else {
     $badgeString = 'fortify-' . implode(',%20', $issues) . '-red';
+    debug("Issues: " . implode(', ', $issues));
 }
 
+if (isset($cacheFile) && is_writable(realpath($cacheDir))) {
+    debug("Writing '$badgeString' to $cacheFile");
+    file_put_contents($cacheFile, $badgeString);
+}
 redirectToBadge($badgeString);
 
-function error($badgeText, $cliText, $colour = 'red') {
+function error($badgeString, $cliText, $colour = 'red') {
     if (php_sapi_name() == 'cli') {
         echo $cliText;
         exit;
     }
-    redirectToBadge('fortify-' . rawurlencode($badgeText) . '-' . $colour);
+    redirectToBadge('fortify-' . rawurlencode($badgeString) . '-' . $colour);
+}
+
+function debug($text) {
+    if (php_sapi_name() == 'cli') {
+        echo $text . "\n";
+    }
 }
 
 function redirectToBadge($badgeString) {
@@ -77,4 +106,3 @@ function redirectToBadge($badgeString) {
     header("Location: $url");
     exit;
 }
-
