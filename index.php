@@ -14,7 +14,7 @@ if ($releaseName === null) {
 }
 debug("Release name: $releaseName");
 
-$cacheDir = getenv('cacheDir');
+$cacheDir = getenv('cacheDir') ?: 'cache';
 if (!empty($cacheDir) && is_dir($cacheDir)) {
     debug("Cache dir: $cacheDir");
     $cacheFile = realpath($cacheDir) . '/' . preg_replace("([^\w\s\d\-_~,;\[\]\(\).])", '', $releaseName);
