@@ -52,7 +52,7 @@ $response = shell_exec($request);
 $decodedResponse = json_decode($response, true);
 $releaseId = $decodedResponse['items'][0]['releaseId'] ?? null;
 if ($releaseId === null) {
-    error('release not found', "Failed fetching release id. $response", 'lightgrey');
+    error("$releaseName not found", "Failed fetching release id. $response", 'lightgrey');
 }
 debug("Release ID: $releaseId");
 
@@ -70,9 +70,7 @@ foreach(['critical', 'high', 'medium', 'low'] as $severity) {
 }
 
 
-$sanitisedRelease = rawurlencode($releaseName);
-$sanitisedRelease = str_replace('-', '--', $sanitisedRelease);
-$sanitisedRelease = str_replace('_', '__', $sanitisedRelease);
+$sanitisedRelease = sanitise($releaseName);
 
 $badgeString = "fortify-$sanitisedRelease%20%7C%20";
 if (count($issues) === 0) {
@@ -94,7 +92,7 @@ function error($badgeString, $cliText, $colour = 'red') {
         echo $cliText;
         exit;
     }
-    redirectToBadge('fortify-' . rawurlencode($badgeString) . '-' . $colour);
+    redirectToBadge('fortify-' . sanitise($badgeString) . '-' . $colour);
 }
 
 function debug($text) {
@@ -111,4 +109,11 @@ function redirectToBadge($badgeString, $link = '') {
     }
     header("Location: $url");
     exit;
+}
+
+function sanitise($text) {
+    $sanitised = rawurlencode($text);
+    $sanitised = str_replace('-', '--', $sanitised);
+    $sanitised = str_replace('_', '__', $sanitised);
+    return $sanitised;
 }
