@@ -69,11 +69,17 @@ foreach(['critical', 'high', 'medium', 'low'] as $severity) {
     }
 }
 
+
+$sanitisedRelease = rawurlencode($releaseName);
+$sanitisedRelease = str_replace('-', '--', $sanitisedRelease);
+$sanitisedRelease = str_replace('_', '__', $sanitisedRelease);
+
+$badgeString = "fortify-$sanitisedRelease%20%7C%20";
 if (count($issues) === 0) {
-    $badgeString = 'fortify-passed-green';
+    $badgeString .= 'passed-green';
     debug("No issues.");
 } else {
-    $badgeString = 'fortify-' . implode(',%20', $issues) . '-red';
+    $badgeString .= implode(',%20', $issues) . '-red';
     debug("Issues: " . implode(', ', $issues));
 }
 
@@ -81,7 +87,7 @@ if (isset($cacheFile) && is_writable(realpath($cacheDir))) {
     debug("Writing '$badgeString' to $cacheFile");
     file_put_contents($cacheFile, $badgeString);
 }
-redirectToBadge($badgeString);
+redirectToBadge($badgeString, "https://emea.fortify.com/Releases/$releaseId/Overview");
 
 function error($badgeString, $cliText, $colour = 'red') {
     if (php_sapi_name() == 'cli') {
@@ -97,8 +103,8 @@ function debug($text) {
     }
 }
 
-function redirectToBadge($badgeString) {
-    $url = "https://img.shields.io/badge/$badgeString.svg";
+function redirectToBadge($badgeString, $link = '') {
+    $url = "https://img.shields.io/badge/$badgeString.svg?link=$link";
     if (php_sapi_name() == 'cli') {
         echo "Redirecting to $url\n";
         exit;
