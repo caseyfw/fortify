@@ -1,20 +1,20 @@
 <?php
 
-$clientId = getenv('clientId') ?: $_GET['clientId'] ?? null;
-$clientSecret = getenv('clientSecret') ?: $_GET['clientSecret'] ?? null;
+$clientId = getParameter('clientId');
+$clientSecret = getParameter('clientSecret');
 if ($clientId === null || $clientSecret === null) {
     error('auth failure', "Need clientId and clientSecret env vars or parameters.\n");
 }
 debug("Client ID: $clientId");
 debug("Client secret: $clientSecret");
 
-$releaseName = getenv('release') ?: $argv[1] ?? $_GET['r'] ?? $_GET['release'] ?? null;
+$releaseName = getParameter('release') ?? $argv[1] ?? null;
 if ($releaseName === null) {
     error('which release?', "Need release env var, argument or parameter.\n");
 }
 debug("Release name: $releaseName");
 
-$cacheDir = getenv('cacheDir') ?: 'cache';
+$cacheDir = getParameter('cacheDir', 'cache');
 if (!empty($cacheDir) && is_dir($cacheDir)) {
     debug("Cache dir: $cacheDir");
     $cacheFile = realpath($cacheDir) . '/' . preg_replace("([^\w\s\d\-_~,;\[\]\(\).])", '', $releaseName);
@@ -77,6 +77,7 @@ if (count($issues) === 0) {
     debug("Issues: " . implode(', ', $issues));
 }
 
+// Create cache entry if possible.
 if (isset($cacheFile) && is_writable(realpath($cacheDir))) {
     debug("Writing '$badgeString' to $cacheFile");
     file_put_contents($cacheFile, $badgeString);
@@ -105,4 +106,15 @@ function redirectToBadge($badgeString) {
     }
     header("Location: $url");
     exit;
+}
+
+function getParameter($key, $default = null) {
+    // If an env var is set with the 'File' suffix, load param from file.
+    $keyFile = $key . 'File';
+    if (!empty(getenv($keyFile))) {
+        return file_exists($keyFile) ? file_get_contents($keyFile) : $default;
+    }
+
+    // Getenv returns an empty string for non-existant variables (Y U NO null?).
+    return getenv($key) ?: $_GET[$key] ?? $default;
 }
